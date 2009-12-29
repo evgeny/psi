@@ -6,6 +6,7 @@
 TEMPLATE = app
 TARGET    = psi
 CONFIG  += qt thread x11 
+#CONFIG += debug
 
 #CONFIG += use_crash
 CONFIG += pep

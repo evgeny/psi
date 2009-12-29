@@ -149,5 +149,9 @@
 		<file>iconsets/emoticons/default/unhappy.png</file>
 		<file>iconsets/emoticons/default/wink.png</file>
 		<file>iconsets/emoticons/default/yes.png</file>
+        
+        <file>iconsets/midi/Last.ico</file>
+		<file>iconsets/midi/Forward.ico</file>
+		<file>iconsets/midi/Rewind.ico</file>
 	</qresource>
 </RCC>

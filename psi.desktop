@@ -2,13 +2,13 @@
 # This is the spec version, *not* the application version
 Version=1.0
 Type=Application
-Name=Psi
-GenericName=Jabber Client
-Comment=Communicate over the Jabber network
-Icon=psi
-Exec=psi
+Name=Peachnote
+GenericName=Peachnote Client
+Comment=Stream midi over internet
+Icon=peachnote
+Exec=peachnote
 Terminal=false
-Categories=Network;InstantMessaging;Qt;
+Categories=Network;Multimedia;Sound;Qt;
 
 # Translations
 GenericName[be]=Кліент Jabber

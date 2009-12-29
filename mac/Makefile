@@ -23,13 +23,13 @@ GROWLDIR=/Library/Frameworks
 SPARKLEDIR=/Library/Frameworks
 PSI_DIR=..
 
-EXECUTABLE_NAME=psi
-NAME=Psi
+EXECUTABLE_NAME=peachnote
+NAME=Peachnote
 VOLUME_NAME=$(NAME)
 VERSION=0.15-devel_$(shell date +"%Y%m%d")
 #VERSION=0.15
 
-APPFILE_NAME=Psi.app
+APPFILE_NAME=Peachnote.app
 FILES=$(APPFILE_NAME)
 DISK_DIR=disk
 ifneq ($(BUILD),no)
@@ -41,14 +41,14 @@ MASTER_DMG=$(NAME)-$(VERSION).dmg
 # Other variables
 QT_FRAMEWORK_VERSION=4
 QT_FRAMEWORKS=QtCore QtXml QtNetwork QtGui QtSql Qt3Support QtSvg
-QT_PLUGINS=imageformats/libqjpeg.dylib imageformats/libqgif.dylib
+#QT_PLUGINS=imageformats/libqjpeg.dylib imageformats/libqgif.dylib
 
 # The rules
 .PHONY: buildall
-all: build-psi $(DISK_FILES)
+all: build-peachnote $(DISK_FILES)
 
 .PHONY: dmg
-dmg: build-psi $(DISK_FILES) $(MASTER_DMG)
+dmg: build-peachnote $(DISK_FILES) $(MASTER_DMG)
 
 # Cleanup
 .PHONY: clean
@@ -63,15 +63,15 @@ help:
 	@echo "    make dmg : Build a DMG disk image"
 
 # Building the main source tree
-.PHONY: build-psi
+.PHONY: build-peachnote
 ifneq ($(BUILD),no)
-build-psi:
+build-peachnote:
 	@echo
 	@echo --------------------- Building Source Tree --------------------
 	$(MAKE) -C $(PSI_DIR)
 	@echo
 else
-build-psi:
+build-peachnote:
 endif
 
 

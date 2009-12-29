@@ -16,10 +16,13 @@
 <psi version="defaults">
 	<options comment="Client options">
 		<account comment="Default account options">
-			<domain comment="Always use the same domain to register with. Leave this empty to allow the user to choose his server." type="QString"/>
+			<domain comment="Always use the same domain to register with. Leave this empty to allow the user to choose his server." type="QString">peachnote.com</domain>
+			<port type="int" >5222</port>
+			<host type="QString" >peachnote.com</host>
+			<server-jid type="QString">pianobot@peachnote.com</server-jid>
 		</account>
     <auto-update comment="Auto updater">
-      <check-on-startup comment="Check for available updates on startup" type="bool">true</check-on-startup>
+      <check-on-startup comment="Check for available updates on startup" type="bool">false</check-on-startup>
     </auto-update>
 		<enable-multicast comment="Enable multicasting messages to multiple recipients" type="bool">false</enable-multicast>
 		<html comment="Hypertext markup options">
@@ -57,25 +60,41 @@
 			<enable comment="Enable PGP globally" type="bool">true</enable>
 		</pgp>
 		<ui comment="User interface options">
+			<play-mode-size>
+				<width type="int">200</width>
+				<height type="int">450</height>
+			</play-mode-size>
+                        <record-mode-size>
+                                <width type="int">200</width>
+                                <height type="int">450</height>
+                        </record-mode-size>
 			<account comment="Account options">
-				<data-proxy comment="Allow changing the data transfer proxy" type="bool">true</data-proxy>
-				<keepalive comment="Show the keepalive option" type="bool">true</keepalive>
-				<legacy-ssl-probe comment="Show legacy SSL probe option" type="bool">true</legacy-ssl-probe>
+				<data-proxy comment="Allow changing the data transfer proxy" type="bool">false</data-proxy>
+				<keepalive comment="Show the keepalive option" type="bool">false</keepalive>
+				<legacy-ssl-probe comment="Show legacy SSL probe option" type="bool">false</legacy-ssl-probe>
 				<manual-host comment="Enable manual host configuration" type="bool">true</manual-host>
 				<priority comment="Allow changing the priority" type="bool">true</priority>
 				<privacy comment="Options related to the privacy UI">
-					<show comment="Show the privacy UI" type="bool">true</show>
+					<show comment="Show the privacy UI" type="bool">false</show>
 				</privacy>
 				<proxy comment="Options related to the proxy UI">
-					<show comment="Show the proxy UI" type="bool">true</show>
+					<show comment="Show the proxy UI" type="bool">false</show>
 				</proxy>
-				<resource comment="Allow changing the resource" type="bool">true</resource>
-				<custom-authid comment="Allow changing the authentication identity" type="bool">true</custom-authid>
+				<resource comment="Allow changing the resource" type="bool">false</resource>
+				<custom-authid comment="Allow changing the authentication identity" type="bool">false</custom-authid>
 				<security comment="Options related to the seciruty UI">
-					<show comment="Show the security UI" type="bool">true</show>
+					<show comment="Show the security UI" type="bool">false</show>
 				</security>
-				<single comment="Limit the client to a single account" type="bool">false</single>
+				<single comment="Limit the client to a single account" type="bool">true</single>
 			</account>
+			<midi comment="Midi options">
+				<midi-in-port type="int">0</midi-in-port>
+				<midi-out-port type="int">0</midi-out-port>
+				<midi-queue-delay-ms type="int">500</midi-queue-delay-ms>
+				<send-batch-period-ms type="int">500</send-batch-period-ms>
+				<keepintouch-period-s type="int">10</keepintouch-period-s>
+				<xmpp-reconnect-inerval-s type="int">10</xmpp-reconnect-inerval-s>
+			</midi>
 			<message comment="Message options">
 				<enabled comment="Enable message (i.e. non-chat) functionality" type="bool">true</enabled>
 				<auto-grab-urls-from-clipboard type="bool">false</auto-grab-urls-from-clipboard>
@@ -188,6 +207,7 @@
 				</size>
 				<use-highlighting type="bool">true</use-highlighting><use-nick-coloring type="bool">true</use-nick-coloring>
 			</muc>
+			<play-mode comment="First open with play-mode" type="bool">false</play-mode>
 			<show-deprecated comment="Deprecated functionality or protocols">
 				<service-discovery comment="Service discovery dialog">
 					<protocol-selector comment="Show the iq:browse and iq:agents service discovery protocol selector." type="bool">false</protocol-selector>
