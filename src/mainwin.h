@@ -26,6 +26,12 @@
 #include <QList>
 #include <QString>
 #include <QStringList>
+#include <QPlainTextEdit>
+#include "titlebar.h"
+#ifndef MAINSTREAM_H
+#include "../../../base/midistream.h"
+#endif
+
 
 #include "advwidget.h"
 
@@ -56,10 +62,15 @@ public:
 	void setUseDock(bool);
 
 	void buildToolbars();
+	void buildTagWidget();
+	void buildNavigationBar();
+	TitleBar* getTitleBar();
 
 	// evil stuff! remove ASAP!!
 	QStringList actionList;
 	QMap<QString, QAction*> actions;
+
+	void printTag(QString t);
 
 	ContactView *cvlist;
 
@@ -69,6 +80,9 @@ protected:
 	// reimplemented
 	void closeEvent(QCloseEvent *);
 	void keyPressEvent(QKeyEvent *);
+	void mousePressEvent(QMouseEvent*);
+	void mouseMoveEvent(QMouseEvent*);
+	void mouseReleaseEvent(QMouseEvent*);
 	QMenuBar* mainMenuBar() const;
 #ifdef Q_WS_WIN
 	bool winEvent(MSG *, long *);
@@ -86,10 +100,12 @@ signals:
 	void doFileTransDlg();
 	void accountInfo();
 	void recvNextEvent();
+	void tagEntered(QString const &);
 
 private slots:
 	void buildStatusMenu();
 	void buildOptionsMenu();
+	void buildHelpMenu();
 	void buildTrayMenu();
 	void buildMainMenu();
 	void buildToolsMenu();
@@ -131,6 +147,10 @@ private slots:
 	bool showDockMenu(const QPoint &);
 	void dockActivated();
 	
+	void midiInChanged();
+	void midiOutChanged();
+	void togglePlayButton(bool);
+	void changeStatus(bool);
 	void searchClearClicked();
 	void searchTextEntered(QString const &text);
 	void searchTextStarted(QString const &text);
@@ -150,10 +170,27 @@ public slots:
 	void toggleVisible();
 
 	void avcallConfig();
+	void changeInStatus();
+	void showNumberOnlineUsers( int );
+	void resetTags();
+	void showTag(QString const & tag);
+	void sendTag();
+	void fillMidiOutPortsList();
+	void fillMidiInPortsList();
+	void focusChange(QWidget*, QWidget*);
+	void changeMidiPortDialog(int);
+	void setInSignalLabel();
+	void setOutSignalLabel();
+	void removeInSignalLabel();
+	void removeOutSignalLabel();
+	void toggleMode(bool);
+
 
 private:
 	void buildGeneralMenu(QMenu *);
 	QString numEventsString(int) const;
+	void playMode();
+	void recordMode();
 
 	bool askQuit();
 
@@ -162,6 +199,11 @@ private:
 
 	void saveToolbarsState();
 	void loadToolbarsState();
+
+    QPoint m_old_pos;
+    bool m_mouse_down;
+    bool left, right, bottom;
+
 
 private:
 	class Private;

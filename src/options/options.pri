@@ -12,6 +12,7 @@ INTERFACES += \
 # additional tabs
 HEADERS += \
 	$$PWD/opt_application.h \
+	$$PWD/opt_midi.h \
 	$$PWD/opt_chat.h \
 	$$PWD/opt_events.h \
 	$$PWD/opt_status.h \
@@ -28,6 +29,7 @@ HEADERS += $$PWD/opt_tree.h
 
 SOURCES += \
 	$$PWD/opt_application.cpp \
+	$$PWD/opt_midi.cpp \
 	$$PWD/opt_chat.cpp \
 	$$PWD/opt_events.cpp \
 	$$PWD/opt_status.cpp \
@@ -44,6 +46,7 @@ SOURCES += $$PWD/opt_tree.cpp
 
 INTERFACES += \
 	$$PWD/opt_application.ui \
+	$$PWD/opt_midi.ui \
 	$$PWD/opt_chat.ui \
 	$$PWD/opt_events.ui \
 	$$PWD/opt_status.ui \

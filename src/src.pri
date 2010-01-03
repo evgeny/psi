@@ -145,6 +145,7 @@ HEADERS += \
 	$$PWD/accountmanagedlg.h \
 	$$PWD/accountadddlg.h \
 	$$PWD/accountregdlg.h \
+	$$PWD/newaccount.h \
 	$$PWD/accountmodifydlg.h \
 	$$PWD/changepwdlg.h \
 	$$PWD/msgmle.h \
@@ -224,6 +225,7 @@ HEADERS += \
 	$$PWD/psiactions.h \
 	$$PWD/bookmarkmanagedlg.h \
 	$$PWD/vcardphotodlg.h \
+        $$PWD/titlebar.h \
 	$$PWD/psicli.h
 
 
@@ -274,6 +276,7 @@ SOURCES += \
 	$$PWD/accountmanagedlg.cpp \
 	$$PWD/accountadddlg.cpp \
 	$$PWD/accountregdlg.cpp \
+	$$PWD/newaccount.cpp \
 	$$PWD/accountmodifydlg.cpp \
 	$$PWD/changepwdlg.cpp \
 	$$PWD/msgmle.cpp \
@@ -349,7 +352,8 @@ SOURCES += \
 	$$PWD/psiaccount.cpp \
 	$$PWD/accountlabel.cpp \
 	$$PWD/bookmarkmanagedlg.cpp \
-	$$PWD/vcardphotodlg.cpp
+	$$PWD/vcardphotodlg.cpp \
+        $$PWD/titlebar.cpp
 
 whiteboarding {
 	# Whiteboarding support. Still experimental.
@@ -410,6 +414,7 @@ INTERFACES += \
 	$$PWD/accountmanage.ui \
 	$$PWD/accountadd.ui \
 	$$PWD/accountreg.ui \
+	$$PWD/newaccount.ui \
 	$$PWD/accountremove.ui \
 	$$PWD/accountmodify.ui \
 	$$PWD/changepw.ui \

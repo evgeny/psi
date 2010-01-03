@@ -77,7 +77,7 @@ QString PsiWidgetPlugin::name() const
 
 QString PsiWidgetPlugin::group() const
 {
-	return "Psi";
+	return "Peachnote";
 }
 
 QString PsiWidgetPlugin::toolTip() const
@@ -87,7 +87,7 @@ QString PsiWidgetPlugin::toolTip() const
 
 QString PsiWidgetPlugin::whatsThis() const
 {
-	return "Psi Widget";
+	return "Peachnote Widget";
 }
 
 QString PsiWidgetPlugin::includeFile() const

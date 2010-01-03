@@ -436,6 +436,23 @@ bool currentDesktop(long *desktop)
 }
 #endif
 
+bool check_focus_rec(QWidget* qw)
+{
+	if (qw->hasFocus()) return true;
+
+	QObjectList children = qw->children();
+	QWidget *child;
+
+	for (QObjectList::Iterator it = children.begin() ; it != children.end(); ++it) {
+		if ( (*it)->isWidgetType() )
+		{
+			child = qobject_cast<QWidget*>(*it);
+			if (check_focus_rec(child)) return true;
+		}
+	}
+	return false;
+}
+
 void bringToFront(QWidget *widget, bool)
 {
 	Q_ASSERT(widget);

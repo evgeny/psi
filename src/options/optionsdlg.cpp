@@ -50,6 +50,7 @@
 #include "opt_advanced.h"
 #include "opt_shortcuts.h"
 #include "opt_tree.h"
+#include "opt_midi.h"
 
 #ifdef PSI_PLUGINS
 #include "opt_plugins.h"
@@ -268,13 +269,15 @@ void OptionsDlg::Private::createTabs()
 	OptionsTabApplication* applicationTab = new OptionsTabApplication(this);
 	applicationTab->setHaveAutoUpdater(psi->haveAutoUpdater());
 	tabs.append( new OptionsTabApplication(this) );
+	tabs.append( new OptionsTabMidi(this) ); //newtab
+#ifdef __FULL_INTERFACE__
 	tabs.append( new OptionsTabChat(this) );
 	tabs.append( new OptionsTabEvents(this) );
 	tabs.append( new OptionsTabStatus(this) );
 	tabs.append( new OptionsTabAppearance(this) );
-	//tabs.append( new OptionsTabIconsetSystem(this) );
-	//tabs.append( new OptionsTabIconsetRoster(this) );
-	//tabs.append( new OptionsTabIconsetEmoticons(this) );
+	tabs.append( new OptionsTabIconsetSystem(this) );
+	tabs.append( new OptionsTabIconsetRoster(this) );
+	tabs.append( new OptionsTabIconsetEmoticons(this) );
 	tabs.append( new OptionsTabGroupchat(this) );
 	tabs.append( new OptionsTabSound(this) );
 	if(AvCallManager::isSupported())
@@ -285,6 +288,7 @@ void OptionsDlg::Private::createTabs()
 #endif
 	tabs.append( new OptionsTabShortcuts(this) );
 	tabs.append( new OptionsTabAdvanced(this) );
+#endif
 	tabs.append( new OptionsTabTree(this) );
 
 	// tabs - general

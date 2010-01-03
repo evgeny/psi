@@ -27,7 +27,7 @@
 #include "psiactions.h"
 
 #include "tabbablewidget.h"
-
+//#include "../../../base/midiclient.h"
 
 using namespace XMPP;
 
@@ -54,6 +54,7 @@ class AlertManager;
 class TuneController;
 class PsiContactList;
 class Q3DockWindow;
+class MidiClient;
 namespace OpenPGP {
 	class Engine;
 }
@@ -69,6 +70,7 @@ public:
 	PsiCon();
 	~PsiCon();
 
+	MidiClient* midiClient();
 	bool init();
 	void deinit();
 
@@ -78,6 +80,7 @@ public:
 	TuneController* tuneController() const;
 	ProxyManager *proxy() const;
 	FileTransDlg *ftdlg() const;
+        OptionsTree *optionsTree() const;
 
 	AlertManager *alertManager() const;
 

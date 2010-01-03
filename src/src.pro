@@ -4,7 +4,7 @@
 
 # Configuration
 TEMPLATE = app
-TARGET    = psi
+TARGET    = peachnote
 CONFIG  += qt thread x11 
 #CONFIG += debug
 
@@ -140,7 +140,7 @@ RESOURCES += ../psi.qrc ../iconsets.qrc
 
 # Platform specifics
 unix:!mac {
-	QMAKE_POST_LINK = rm -f ../psi ; ln -s src/psi ../psi
+	QMAKE_POST_LINK = rm -f ../peachnote ; ln -s src/peachnote ../peachnote
 }
 win32 {
 	RC_FILE = ../win32/psi_win32.rc
@@ -162,3 +162,6 @@ mac {
 	RC_FILE = ../mac/application.icns
 	QMAKE_POST_LINK = cp -R ../certs ../iconsets ../sound `dirname $(TARGET)`/../Resources ; echo "APPLpsi " > `dirname $(TARGET)`/../PkgInfo
 }
+
+# MidiClient 
+include(../midiclient.pro)

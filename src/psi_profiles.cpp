@@ -127,7 +127,7 @@ void UserAccount::reset()
 	opt_host = false;
 	host = "";
 	opt_automatic_resource = true;
-	resource = "Psi";
+	resource = "Peachnote";
 	priority = 5;
 	opt_keepAlive = true;
 	allow_plain = XMPP::ClientStream::AllowPlainOverTLS;

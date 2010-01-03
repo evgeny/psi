@@ -34,6 +34,8 @@
 #include "pgpkeydlg.h"
 #include "psicontactlist.h"
 
+#include "../../../base/midiclient.h"
+
 AccountModifyDlg::AccountModifyDlg(PsiCon *_psi, QWidget *parent)
 :QDialog(parent)
 {
@@ -224,7 +226,7 @@ void AccountModifyDlg::init()
 		"the Jabber server.  You may use this option if your "
 		"server supports it and if you have the necessary QCA-OpenSSL "
 		"plugin installed.  For more information, check the "
-		"Psi homepage."));
+		"Peachnote homepage."));
 	ck_compress->setWhatsThis(
 		tr("Check this option to use a compressed connection to "
 		"the Jabber server, if the server supports it."));
@@ -275,7 +277,8 @@ void AccountModifyDlg::init()
 	
 	if (!PsiOptions::instance()->getOption("options.ui.account.proxy.show").toBool()) {
 		lb_proxy->hide();
-		pc->hide();
+		// keep comment for the midi "options -> account setup"
+	//	lb_proxychooser->hide();
 	}
 
 	if (!PsiOptions::instance()->getOption("options.ui.account.manual-host").toBool()) {
@@ -552,6 +555,9 @@ void AccountModifyDlg::save()
 	}
 
 	accept();
+
+		//restart midiclient with updated options
+	psi->midiClient()->restart();
 }
 
 void AccountModifyDlg::tabChanged(int)

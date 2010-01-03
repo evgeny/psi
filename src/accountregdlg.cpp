@@ -39,13 +39,25 @@ AccountRegDlg::AccountRegDlg(ProxyManager *pm, QWidget *parent) : QDialog(parent
 	ui_.setupUi(this);
 	setModal(false);
 
-	// TODO: If the domain is fixed, and the connection settings are fixed, skip first
+	// If the domain is fixed, and the connection settings are fixed, skip first
 	// step
+	ui_.gb_connection->setVisible(false);
 	
 	// Initialize settings
 	ssl_ = UserAccount::SSL_Auto;
 	legacy_ssl_probe_ = true;
-	port_ = 5222;
+	port_=8090;
+ /**   read port from xml -do not work
+	if (!PsiOptions::instance()->getOption("options.account.port").toString.isEmpty()) {
+		port_ = PsiOptions::instance()->getOption("options.account.port").toInt();
+	}
+	else {
+		port_ = 8090;
+	}
+*/
+	if (!PsiOptions::instance()->getOption("options.account.host").toString().isEmpty()) {
+		host_ = QString(PsiOptions::instance()->getOption("options.account.host").toString());
+	}
 	
 	// Server select button
 	connect(ui_.le_server,SIGNAL(popup()),SLOT(selectServer()));
@@ -54,11 +66,12 @@ AccountRegDlg::AccountRegDlg(ProxyManager *pm, QWidget *parent) : QDialog(parent
 	connect(serverlist_querier_,SIGNAL(error(const QString&)),SLOT(serverListError(const QString&)));
 
 	// Manual Host/Port
-	ui_.le_host->setEnabled(false);
-	ui_.lb_host->setEnabled(false);
-	ui_.le_port->setEnabled(false);
-	ui_.lb_port->setEnabled(false);
+	ui_.le_host->setEnabled(true);
+	ui_.lb_host->setEnabled(true);
+	ui_.le_port->setEnabled(true);
+	ui_.lb_port->setEnabled(true);
 	connect(ui_.ck_host, SIGNAL(toggled(bool)), SLOT(hostToggled(bool)));
+	ui_.ck_host->setChecked(true);
 
 	// SSL
 	ui_.cb_ssl->addItem(tr("Always"),UserAccount::SSL_Yes);
@@ -88,6 +101,7 @@ AccountRegDlg::AccountRegDlg(ProxyManager *pm, QWidget *parent) : QDialog(parent
 	fields_ = NULL;
 
 	ui_.le_port->setText(QString::number(port_));
+	ui_.le_host->setText(host_);
 	ui_.le_host->setFocus();
 
 	client_ = new MiniClient;
@@ -97,6 +111,7 @@ AccountRegDlg::AccountRegDlg(ProxyManager *pm, QWidget *parent) : QDialog(parent
 	if (!PsiOptions::instance()->getOption("options.account.domain").toString().isEmpty()) {
 		ui_.gb_server->hide();
 	}
+	next();
 }
 
 AccountRegDlg::~AccountRegDlg()

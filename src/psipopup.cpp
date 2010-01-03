@@ -239,7 +239,7 @@ PsiPopup::PsiPopup(PopupType type, PsiAccount *acc)
 
 	d->popupType = type;
 	PsiIcon *icon = 0;
-	QString text = "Psi: ";
+	QString text = "Peachnote: ";
 	bool doAlertIcon = false;
 
 	switch(type) {

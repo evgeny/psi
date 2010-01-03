@@ -87,8 +87,8 @@ PsiMain::PsiMain(const QMap<QString, QString>& commandline, QObject *par)
 {
 	pcon = 0;
 
-	// migrate old (pre 0.11) registry settings...
-	QSettings sUser(QSettings::UserScope, "psi-im.org", "Psi");
+	// load simple registry settings
+	QSettings sUser(QSettings::UserScope, "peachnote.com", "Peachnote");
 	lastProfile = sUser.value("last_profile").toString();
 	lastLang = sUser.value("last_lang").toString();
 	autoOpen = sUser.value("auto_open", QVariant(false)).toBool();

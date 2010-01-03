@@ -255,10 +255,13 @@ void PsiActionList::Private::createMainWin()
 #ifdef USE_PEP
 	{
 		IconAction *actPublishTune = new IconAction (tr("Publish Tune"), "psi/publishTune", tr("Publish &Tune"), 0, this, 0, true);
-		actPublishTune->setWhatsThis (tr("Toggles whether the currently playing tune should be published or not"));
+		actPublishTune->setWhatsThis (tr("Toggles whether the currently playing tune should be published or not."));
+		IconAction *actMidiClients = new IconAction (tr("On-Line users"), "psi/publishTune", tr("Online users:"), 0, this, 0, false);
+		actPublishTune->setWhatsThis (tr("Show me count of users."));
 
 		ActionNames actions[] = {
 			{ "publish_tune", actPublishTune },
+			{ "online_users", actMidiClients },
 			{ "", 0 }
 		};
 
@@ -335,11 +338,11 @@ void PsiActionList::Private::createMainWin()
 		IconAction *actOnlineHome = new IconAction (tr("Home Page (Online)"), tr("&Home Page (Online)"), 0, this);
 		actOnlineHome->setWhatsThis (tr("Home Page (Online)"));
 
-		IconAction *actOnlineForum = new IconAction (tr("Psi Forum (Online)"), tr("Psi &Forum (Online)"), 0, this);
-		actOnlineForum->setWhatsThis (tr("Psi Forum (Online)"));
+		IconAction *actOnlineForum = new IconAction (tr("Peachnote Forum (Online)"), tr("Peachnote &Forum (Online)"), 0, this);
+		actOnlineForum->setWhatsThis (tr("Peachnote Forum (Online)"));
 
-		IconAction *actPsiMUC = new IconAction (tr("Join Psi Discussion Room (Online)"), tr("&Join Psi Discussion Room (Online)"), 0, this);
-		actOnlineHome->setWhatsThis (tr("Join Psi Discussion Room (Online)"));
+		IconAction *actPsiMUC = new IconAction (tr("Join Peachnote Discussion Room (Online)"), tr("&Join Peachnote Discussion Room (Online)"), 0, this);
+		actOnlineHome->setWhatsThis (tr("Join Peachnote Discussion Room (Online)"));
 
 		IconAction *actBugReport = new IconAction (tr("Report a Bug (Online)"), tr("Report a &Bug (Online)"), 0, this);
 		actBugReport->setWhatsThis (tr("Report a Bug (Online)"));

@@ -119,6 +119,7 @@ QString clipStatus(const QString &str, int width, int height);
 // Widget tools
 // -----------------------------------------------------------------------------
 
+bool check_focus_rec(QWidget* qw);
 void bringToFront(QWidget *w, bool grabFocus = true);
 void replaceWidget(QWidget *, QWidget *);
 void closeDialogs(QWidget *);

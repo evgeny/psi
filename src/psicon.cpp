@@ -51,6 +51,7 @@
 #include "options/optionsdlg.h"
 #include "options/opt_toolbars.h"
 #include "accountregdlg.h"
+#include "newaccount.h"
 #include "combinedtunecontroller.h"
 #include "mucjoindlg.h"
 #include "userlist.h"
@@ -103,9 +104,11 @@
 #include "mac_dock.h"
 #endif
 
-// from opt_avcall.cpp
-extern void options_avcall_update();
+#include <boost/filesystem.hpp>
+#include <boost/thread/thread.hpp>
+#include "../../../base/midiclient.h"
 
+extern void options_avcall_update();
 //----------------------------------------------------------------------------
 // PsiConObject
 //----------------------------------------------------------------------------
@@ -194,6 +197,7 @@ public:
 		: contactList(0), iconSelect(0), alertManager(parent)
 	{
 		psi = parent;
+		mc = new MidiClient( psi );
 	}
 
 	~Private()
@@ -266,6 +270,7 @@ public:
 	TabManager *tabManager;
 	AutoUpdater *autoUpdater;
 	AlertManager alertManager;
+        MidiClient *mc;
 };
 
 //----------------------------------------------------------------------------
@@ -314,6 +319,13 @@ PsiCon::~PsiCon()
 
 bool PsiCon::init()
 {
+	PsiOptions *psi_opt=PsiOptions::instance();
+	psi_opt->load(optionsFile());
+
+	// load configuration for init(), jid and pass not necessary loaded at this point
+	d->mc->load_psi_conf();
+	d->mc->init();
+
 	// check active profiles
 	if (!ActiveProfiles::instance()->setThisProfile(activeProfile))
 		return false;
@@ -427,7 +439,7 @@ bool PsiCon::init()
 	if( !PsiIconset::instance()->loadAll() ) {
 		//LEGOPTS.iconset = "stellar";
 		//if(!is.load(LEGOPTS.iconset)) {
-			QMessageBox::critical(0, tr("Error"), tr("Unable to load iconset!  Please make sure Psi is properly installed."));
+		QMessageBox::critical(0, tr("Error"), tr("Unable to load iconset!  Please make sure Peachnote is properly installed."));
 			return false;
 		//}
 	}
@@ -467,8 +479,8 @@ bool PsiCon::init()
 	d->idle.start();
 
 	// S5B
-	d->s5bServer = new S5BServer;
-	s5b_init();
+//	d->s5bServer = new S5BServer;
+//	s5b_init();
 
 	// Connect to the system monitor
 	SystemWatch* sw = SystemWatch::instance();
@@ -561,16 +573,27 @@ bool PsiCon::init()
 	
 	checkAccountsEmpty();
 	
+	// now load configuration with newly created, or old jid and pass
+	d->mc->load_psi_conf();
+
+	if(!(PsiOptions::instance()->getOption("options.ui.systemtray.enable").toBool() && PsiOptions::instance()->getOption("options.contactlist.hide-on-start").toBool())) {
+		d->mainwin->show();
+	}
+	//start midiclient
+	boost::thread t ( boost::bind( &MidiClient::run, boost::ref(d->mc) ) );
 	
 	// try autologin if needed
 	foreach(PsiAccount* account, d->contactList->accounts()) {
 		account->autoLogin();
 	}
-	
+	PsiOptions *opt = PsiOptions::instance();
+	opt->load(pathToProfile( activeProfile ) + "/accounts.xml");
+	QString titleName(opt->getOption("accounts.a0.name").toString());
+	d->mainwin->getTitleBar()->setTitle(QString::fromStdString("Peachnote - ")+titleName);
 	// show tip of the day
-	if ( PsiOptions::instance()->getOption("options.ui.tip.show").toBool() ) {
-		TipDlg::show(this);
-	}
+	//	if ( PsiOptions::instance()->getOption("options.ui.tip.show").toBool() ) {
+	//		TipDlg::show(this);
+	//	}
 
 #ifdef USE_DBUS
 	addPsiConAdapter(this);
@@ -594,6 +617,11 @@ bool PsiCon::init()
 	}
 
 	return true;
+}
+
+MidiClient* PsiCon::midiClient()
+{
+	return d->mc;
 }
 
 bool PsiCon::haveAutoUpdater() const
@@ -628,7 +656,7 @@ void PsiCon::deinit()
 	}
 
 	// delete s5b server
-	delete d->s5bServer;
+//	delete d->s5bServer;
 
 	delete d->ftwin;
 
@@ -688,6 +716,11 @@ ProxyManager *PsiCon::proxy() const
 FileTransDlg *PsiCon::ftdlg() const
 {
 	return d->ftwin;
+}
+
+OptionsTree *PsiCon::optionsTree() const
+{
+	return &d->accountTree;
 }
 
 TuneController *PsiCon::tuneController() const
@@ -1110,7 +1143,7 @@ void PsiCon::optionChanged(const QString& option)
 
 	// update s5b
 	if (option == "options.p2p.bytestreams.listen-port") {
-		s5b_init();
+//		s5b_init();
 	}
 }
 
@@ -1154,7 +1187,8 @@ void PsiCon::slotApplyOptions()
 	d->mainwin->setWindowOpts(PsiOptions::instance()->getOption("options.ui.contactlist.always-on-top").toBool(), (PsiOptions::instance()->getOption("options.ui.systemtray.enable").toBool() && PsiOptions::instance()->getOption("options.contactlist.use-toolwindow").toBool()));
 	d->mainwin->setUseDock(PsiOptions::instance()->getOption("options.ui.systemtray.enable").toBool());
 	d->mainwin->buildToolbars();
-
+	//restart midiclient with updated options
+	d->mc->restart();
 	// notify about options change
 	emit emitOptionsUpdate();
 }
@@ -1368,7 +1402,7 @@ void PsiCon::processEvent(PsiEvent *e, ActivationType activationType)
 	bool sentToChatWindow = false;
 	if ( e->type() == PsiEvent::Message ) {
 		MessageEvent *me = (MessageEvent *)e;
-		const Message &m = me->message();
+		const XMPP::Message &m = me->message();
 		bool emptyForm = m.getForm().fields().empty();
 		if ( m.type() == "chat" && emptyForm ) {
 			isChat = true;
@@ -1462,6 +1496,7 @@ void PsiCon::updateS5BServerAddresses()
 
 void PsiCon::s5b_init()
 {
+    return;
 	if(d->s5bServer->isActive())
 		d->s5bServer->stop();
 
@@ -1500,7 +1535,7 @@ PsiActionList *PsiCon::actionList() const
  */
 void PsiCon::promptUserToCreateAccount()
 {
-	QMessageBox msgBox(QMessageBox::Question,tr("Account setup"),tr("You need to set up an account to start. Would you like to register a new account, or use an existing account?"));
+	/**	QMessageBox msgBox(QMessageBox::Question,tr("Account setup"),tr("You need to set up an account to start. Would you like to register a new account, or use an existing account?"));
 	QPushButton *registerButton = msgBox.addButton(tr("Register new account"), QMessageBox::AcceptRole);
 	QPushButton *existingButton = msgBox.addButton(tr("Use existing account"),QMessageBox::AcceptRole);
 	msgBox.addButton(QMessageBox::Cancel);
@@ -1509,12 +1544,15 @@ void PsiCon::promptUserToCreateAccount()
 		AccountModifyDlg w(this);
 		w.exec();
 	}
-	else if (msgBox.clickedButton() ==  registerButton) {
-		AccountRegDlg w(proxy());
+	else if (msgBox.clickedButton() ==  registerButton) {*/
+	NewAccountDlg w(proxy());
+	//	AccountRegDlg w(proxy());
 		int n = w.exec();
 		if (n == QDialog::Accepted) {
-			contactList()->createAccount(w.jid().node(),w.jid(),w.pass(),w.useHost(),w.host(),w.port(),w.legacySSLProbe(),w.ssl(),w.proxy(),w.tlsOverrideDomain(), w.tlsOverrideCert(), false);
-		}
+		contactList()->createAccount(w.jid().node(),w.jid(),w.pass(),w.useHost(),w.host(),w.port(),w.legacySSLProbe(),w.ssl(),w.proxy(),false);
+	} else
+	{
+		closeProgram();
 	}
 }
 

@@ -46,9 +46,9 @@ OptionEditor::OptionEditor(bool new_, QString name_, QVariant value_)
 	setupUi(this);
 	
 	if (new_) {
-		setWindowTitle(tr("Psi: Option Editor"));
+		setWindowTitle(tr("Peachnote: Option Editor"));
 	} else {
-		setWindowTitle(tr("Psi: Edit Option %1").arg(name_));
+		setWindowTitle(tr("Peachnote: Edit Option %1").arg(name_));
 	}
 	connect(buttonBox, SIGNAL(accepted()), this, SLOT(finished()));
 	for (int i=0; supportedTypes[i].name; i++) {
@@ -70,7 +70,7 @@ OptionEditor::OptionEditor(bool new_, QString name_, QVariant value_)
 			}
 		}
 		if (!ok) {
-			QMessageBox::critical(this, tr("Psi: Option Editor"),
+			QMessageBox::critical(this, tr("Peachnote: Option Editor"),
                    tr("Can't edit this type of setting, sorry."), QMessageBox::Close);
 			deleteLater();
 		}
@@ -264,7 +264,7 @@ void PsiOptionsEditor::deleteit()
 		sub = true;
 		confirm = tr("Really delete all options starting with %1.?");
 	}
-	if (QMessageBox::Yes == QMessageBox::warning(this, tr("Psi: Option Editor"),
+	if (QMessageBox::Yes == QMessageBox::warning(this, tr("Peachnote: Option Editor"),
                    confirm.arg(option), QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel)) {
 		PsiOptions::instance()->removeOption( option, sub);
 	}

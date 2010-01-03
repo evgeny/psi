@@ -37,6 +37,16 @@
 #include <QMenuItem>
 #include <QtAlgorithms>
 #include <QShortcut>
+#include <QComboBox>
+#include <QString>
+#include <QPushButton>
+#include <QPlainTextEdit>
+#include <QLineEdit>
+#include <QFrame>
+#include <QDateTimeEdit>
+#include <QDockWidget>
+#include <QSplitter>
+#include <QWebView>
 
 #ifdef Q_WS_WIN
 #include <windows.h>
@@ -63,6 +73,7 @@
 
 #include "mainwin_p.h"
 
+#include "../../../base/midiclient.h"
 #include "psimedia/psimedia.h"
 #include "avcall/avcall.h"
 
@@ -91,9 +102,9 @@ public:
 	Private(PsiCon *, MainWin *);
 	~Private();
 
-	QVBoxLayout* vb_main;
+	QVBoxLayout* vb_main, *streamTabLayout;
 	bool onTop, asTool;
-	QMenu* mainMenu, *statusMenu, *optionsMenu, *toolsMenu;
+	QMenu* mainMenu, *statusMenu, *optionsMenu, *toolsMenu, *helpMenu;
 	int sbState;
 	QString nickname;
 	PsiTrayIcon* tray;
@@ -106,9 +117,24 @@ public:
 	PsiCon* psi;
 	MainWin* mainWin;
 
+	QPlainTextEdit* tagList;
 	QLineEdit* searchText;
+	TitleBar* titleBar;
+	QComboBox* midiInSpin, *midiOutSpin;
+	QLabel* statusText, *statusPicture, *inSignalStatus, *outSignalStatus, *streamInfoLabel;
+	QLineEdit* midiInText, *midiOutText, *commentLine; //new
 	QToolButton* searchPb;
-	QWidget* searchWidget;
+	QPushButton* nextButton, *prevButton, *stopButton, *playButton, *timeSearchButton, *toggleModeButton;
+	QWidget* searchWidget, *midiInLine, *midiOutLine;
+	QFrame* midiWidget, *statusFrame, *tagFrame, *navigationFrame;
+	QDateTimeEdit* timeSearch;
+	QMenuBar* customMenu;
+	QSplitter* centerSplitter;
+	QSize *playModeSize, *recordModeSize;
+	QTimer *inSignalTimer, *outSignalTimer;
+	QTabWidget *tabWidget;
+	bool isLabelInActive, isLabelOutActive;
+
 
 	QSignalMapper* statusMapper;
 
@@ -250,6 +276,9 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon* psi)
 	d = new Private(psi, this);
 
 	setWindowIcon(PsiIconset::instance()->status(STATUS_OFFLINE).impix());
+	setWindowFlags(Qt::FramelessWindowHint);
+	setMouseTracking(true);
+	m_mouse_down = false;
 
 	d->onTop = _onTop;
 	d->asTool = _asTool;
@@ -266,14 +295,22 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon* psi)
 	d->trayMenu = 0;
 	d->statusTip = "";
 	d->nickname = "";
-
-	QWidget* center = new QWidget (this);
-	setCentralWidget ( center );
-
+    
+    
+    d->centerSplitter = new QSplitter(this);
+	d->centerSplitter->setObjectName("centerSplitter");
+	d->centerSplitter->setChildrenCollapsible(false);
+	QFrame* center = new QFrame (d->centerSplitter, "Central widget");
+	center->setObjectName("leftWidget");
+	center->setMouseTracking(true);
+//	center->setFocusPolicy(Qt::StrongFocus);
+	d->centerSplitter->addWidget(center);
+	d->centerSplitter->setMouseTracking(true);
+	setCentralWidget ( d->centerSplitter );
 	d->vb_main = new QVBoxLayout(center);
 	cvlist = new ContactView(center);
 
-	int layoutMargin = 2;
+	int layoutMargin = 5;
 #ifdef Q_WS_MAC
 	layoutMargin = 0;
 	cvlist->setFrameShape(QFrame::NoFrame);
@@ -281,10 +318,103 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon* psi)
 	d->vb_main->setMargin(layoutMargin);
 	d->vb_main->setSpacing(layoutMargin);
 
+// tab for search and stream
+	d->tabWidget = new QTabWidget(center);
+	d->tabWidget->setMouseTracking(true);
+	QWidget* streamWidget = new QWidget(center);
+	streamWidget->setObjectName("streamWidget");
+	d->tabWidget->addTab(streamWidget, "Stream");
+	d->streamTabLayout = new QVBoxLayout(streamWidget);
+	d->vb_main->addWidget(d->tabWidget);
+
+// midi port bar
+	d->isLabelInActive = false;
+	d->isLabelOutActive = false;
+	d->midiWidget = new QFrame(centralWidget());
+	d->midiWidget->setObjectName("midiPortsBar");
+	d->streamTabLayout->addWidget(d->midiWidget);
+
+	QVBoxLayout* midiLayout = new QVBoxLayout(d->midiWidget);
+	midiLayout->setMargin(0);
+	midiLayout->setSpacing(0);
+
+	QFrame* barFrame = new QFrame(d->midiWidget);
+	midiLayout->addWidget(barFrame);
+	QVBoxLayout* barFrameLayout = new QVBoxLayout(barFrame);
+	barFrameLayout->setContentsMargins(0,0,0,3);
+	barFrameLayout->setSpacing(0);
+	midiLayout->setAlignment(barFrame, Qt::AlignCenter);
+
+
+	d->midiInSpin = new QComboBox(d->midiWidget);
+	d->midiInSpin->setObjectName("midiInComboBox");
+	d->midiOutSpin = new QComboBox(d->midiWidget);
+	d->midiOutSpin->setObjectName("midiOutComboBox");
+
+	d->midiOutLine = new QWidget(d->midiWidget);
+	QHBoxLayout *midiOutLineLayout = new QHBoxLayout(d->midiOutLine);
+	midiOutLineLayout->setMargin(0);
+	midiOutLineLayout->setSpacing(0);
+
+	QLabel *midiOutLabel = new QLabel(d->midiOutLine);
+	midiOutLabel->setText("Midi-Out Port: ");
+	d->outSignalStatus = new QLabel(d->midiOutLine);
+	midiOutLineLayout->addWidget(midiOutLabel, Qt::AlignLeft);
+	midiOutLineLayout->addWidget(d->outSignalStatus, Qt::AlignLeft);
+
+	connect( d->midiOutSpin,SIGNAL(activated(const int)),SLOT(midiOutChanged()) );
+	connect( d->psi->midiClient()->midiDevice().get(), SIGNAL(playedMidi()), SLOT(setOutSignalLabel()));
+
+	d->midiInLine = new QWidget(d->midiWidget);
+	QHBoxLayout *midiInLineLayout = new QHBoxLayout(d->midiInLine);
+	midiInLineLayout->setMargin(0);
+	midiInLineLayout->setSpacing(0);
+	QLabel *midiInLabel = new QLabel(d->midiInLine);
+	midiInLabel->setText("Midi-In Port: ");
+	d->inSignalStatus = new QLabel(d->midiInLine);
+	midiInLineLayout->addWidget(midiInLabel, Qt::AlignLeft);
+	midiInLineLayout->addWidget(d->inSignalStatus, Qt::AlignLeft);
+
+	connect( d->midiInSpin, SIGNAL(activated(const int)), SLOT(midiInChanged()) );
+	connect( d->psi->midiClient(), SIGNAL(gotMidiInEvent()), SLOT(setInSignalLabel()));
+
+	fillMidiInPortsList();
+	fillMidiOutPortsList();
+
+	barFrameLayout->addWidget(d->midiOutLine);
+	barFrameLayout->addWidget(d->midiOutSpin);
+	barFrameLayout->addWidget(d->midiInLine);
+	barFrameLayout->addWidget(d->midiInSpin);
+/*
+	midiLayout->addWidget(d->midiOutLine);
+	midiLayout->addWidget(d->midiOutSpin);
+	midiLayout->addWidget(d->midiInLine);
+	midiLayout->addWidget(d->midiInSpin);
+	midiLayout->setAlignment(d->midiOutLine, Qt::AlignHCenter);
+	midiLayout->setAlignment(d->midiOutSpin, Qt::AlignHCenter);
+	midiLayout->setAlignment(d->midiInLine, Qt::AlignHCenter);
+	midiLayout->setAlignment(d->midiInSpin, Qt::AlignHCenter);
+*/
+//	d->midiWidget->setVisible(true);
+//	buildMidiPortsBar();
+
+//  navigation bar
+	buildNavigationBar();
+
+//add tag view
+	buildTagWidget();
+
 	// create search bar
 	d->searchWidget = new QWidget(centralWidget());
-	d->vb_main->addWidget(d->searchWidget);
-	QHBoxLayout* searchLayout = new QHBoxLayout(d->searchWidget);
+	d->tabWidget->addTab(d->searchWidget, "Search");
+    QVBoxLayout* searchLayout = new QVBoxLayout(d->searchWidget);
+	QWebView *view = new QWebView(d->searchWidget);
+    view->load(QUrl("http://peachnote.com/sites/all/modules/xoserv/search.html"));
+    view->show();
+	searchLayout->addWidget(view);
+    d->searchWidget->setMouseTracking(true);
+
+/*	QHBoxLayout* searchLayout = new QHBoxLayout(d->searchWidget);
 	searchLayout->setMargin(0);
 	searchLayout->setSpacing(0);
 	d->searchText = new QLineEdit(d->searchWidget);
@@ -296,8 +426,62 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon* psi)
 	connect(cvlist, SIGNAL(searchInput(const QString&)), SLOT(searchTextStarted(const QString&)));
 	searchLayout->addWidget(d->searchPb);
 	d->searchWidget->setVisible(false);
+*/
 	//add contact view
+	cvlist->setVisible(false);
 	d->vb_main->addWidget(cvlist);
+
+	//create server status bar
+	d->statusFrame = new QFrame(centralWidget());
+	d->statusFrame->setMouseTracking(true);
+	d->statusFrame->setObjectName("statusLine");
+	d->statusFrame->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+	d->statusFrame->setLineWidth(2);
+	d->vb_main->addWidget(d->statusFrame);
+	QHBoxLayout* statusLayout = new QHBoxLayout(d->statusFrame);
+	statusLayout->setMargin(0);
+	statusLayout->setSpacing(0);
+	d->statusText = new QLabel(d->statusFrame);
+	QFont font("Helvetica", 8);
+    d->statusText->setFont(font);
+	d->statusText->setMaximumHeight(12);
+	statusLayout->addWidget(d->statusText);
+	connect( d->psi->midiClient(), SIGNAL(gotUsersOnline(const int)), SLOT(showNumberOnlineUsers( int )));
+//	d->statusPicture = new QLabel(d->statusFrame);
+//	d->statusPicture->setPixmap ( QPixmap("../../iconsets/midi/status_off.gif") );
+	connect ( d->psi->midiClient(), SIGNAL(gotStatus( bool )), SLOT(changeStatus( bool )));
+//	statusLayout->addWidget(d->statusPicture);
+//	statusLayout->setAlignment(d->statusPicture, Qt::AlignRight);
+//	d->statusFrame->setVisible(true);
+
+	//dock widget
+/*	QWidget *centerDockWidget = new QWidget(d->centerSplitter);
+    QVBoxLayout* dockLayout = new QVBoxLayout(centerDockWidget);
+	QWebView *view = new QWebView(centerDockWidget);
+    view->load(QUrl("http://peachnote.com/embedded/search"));
+    view->show();
+	dockLayout->addWidget(view);
+    centerDockWidget->setMouseTracking(true);
+	d->centerSplitter->addWidget(centerDockWidget);
+*/
+	//title with menu Widget
+	QWidget* menuWidget = new QWidget(this);
+	QVBoxLayout* menuLayout = new QVBoxLayout(menuWidget);
+	menuLayout->setSpacing(0);
+	menuLayout->setContentsMargins ( 0,0,0,0 );
+
+	d->titleBar = new TitleBar(menuWidget, new QString("Peachnote"));
+	d->titleBar->setObjectName("titleBar");
+	d->customMenu = new QMenuBar(menuWidget);
+	d->customMenu->setObjectName("menuBar");
+	d->customMenu->setFocusPolicy(Qt::ClickFocus);
+	menuLayout->addWidget(d->titleBar);
+	menuLayout->addWidget(d->customMenu);
+	setMenuWidget(menuWidget);
+
+	connect( d->psi->midiClient(), SIGNAL(newInPortFound(const int)), SLOT(changeMidiPortDialog(int)));
+	connect( d->psi->midiClient(), SIGNAL(inPortsChanged()), SLOT(fillMidiInPortsList()));
+	connect( d->psi->midiClient(), SIGNAL(outPortsChanged()), SLOT(fillMidiOutPortsList()));
 
 #ifdef Q_WS_MAC
 	// Disable the empty vertical scrollbar:
@@ -308,6 +492,10 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon* psi)
 
 	d->statusMenu = new QMenu(tr("Status"), this);
 	d->optionsMenu = new QMenu(tr("General"), this);
+	d->helpMenu = new QMenu(this);
+	d->statusMenu->setObjectName("statusMenu");
+	d->optionsMenu->setObjectName("optionsMenu");
+	d->helpMenu->setObjectName("helpMenu");
 #ifdef Q_WS_MAC
 	d->trayMenu = d->statusMenu;
 #else
@@ -316,9 +504,9 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon* psi)
 	connect(d->trayMenu, SIGNAL(aboutToShow()), SLOT(buildTrayMenu()));
 #endif
 
-
 	buildStatusMenu();
-	buildOptionsMenu();
+	//buildOptionsMenu();
+    buildHelpMenu();
 	connect(d->optionsMenu, SIGNAL(aboutToShow()), SLOT(buildOptionsMenu()));
 
 
@@ -338,33 +526,25 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon* psi)
 
 	// Mac-only menus
 #ifdef Q_WS_MAC
-	QMenu* mainMenu = new QMenu(tr("Menu"), this);
-	mainMenuBar()->addMenu(mainMenu);
+	QMenu* mainMenu = new QMenu(this);
+	mainMenuBar()->insertItem(tr("Menu"), mainMenu);
+	mainMenuBar()->setObjectName("menuBar");
 	d->getAction("menu_options")->addTo(mainMenu);
 	d->getAction("menu_quit")->addTo(mainMenu);
 	d->getAction("help_about")->addTo(mainMenu);
 	d->getAction("help_about_qt")->addTo(mainMenu);
 
-	d->mainMenu = new QMenu(tr("General"), this);
-	mainMenuBar()->addMenu(d->mainMenu);
+	d->mainMenu = new QMenu(this);
+	mainMenuBar()->insertItem(tr("General"), d->mainMenu);
 	connect(d->mainMenu, SIGNAL(aboutToShow()), SLOT(buildMainMenu()));
 #else
-	mainMenuBar()->addMenu(d->optionsMenu);
+	mainMenuBar()->insertItem(tr("General"), d->optionsMenu);
+	mainMenuBar()->insertItem(tr("Help"), d->helpMenu);
 #endif
 
-	mainMenuBar()->addMenu(d->statusMenu);
-
-	QMenu* viewMenu = new QMenu(tr("View"), this);
-	mainMenuBar()->addMenu(viewMenu);
-	d->getAction("show_offline")->addTo(viewMenu);
-	if (PsiOptions::instance()->getOption("options.ui.menu.view.show-away").toBool()) {
-		d->getAction("show_away")->addTo(viewMenu);
-	}
-	d->getAction("show_hidden")->addTo(viewMenu);
-	d->getAction("show_agents")->addTo(viewMenu);
-	d->getAction("show_self")->addTo(viewMenu);
-	viewMenu->addSeparator();
-	d->getAction("show_statusmsg")->addTo(viewMenu);
+//	menuWidget->insertItem(tr("General"), d->optionsMenu);
+//	menuWidget->insertItem(tr("Status"), d->statusMenu);
+//	mainMenuBar()->insertItem(tr("Status"), d->statusMenu);
 
 	// Mac-only menus
 #ifdef Q_WS_MAC
@@ -401,7 +581,7 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon* psi)
 	d->optionsButton->setMenu( d->optionsMenu );
 	d->statusButton->setMenu( d->statusMenu );
 
-	buildToolbars();
+	//buildToolbars();
 	// setUnifiedTitleAndToolBarOnMac(true);
 
 	connect(qApp, SIGNAL(dockActivated()), SLOT(dockActivated()));
@@ -409,8 +589,38 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon* psi)
 	connect(psi, SIGNAL(emitOptionsUpdate()), SLOT(optionsUpdate()));
 	optionsUpdate();
 
-        /*QShortcut *sp_ss = new QShortcut(QKeySequence(tr("Ctrl+Shift+N")), this);
-        connect(sp_ss, SIGNAL(triggered()), SLOT(avcallConfig()));*/
+	// load css file
+	QFile cssFile( ":/css/style.css" );
+
+	setFocusPolicy(Qt::StrongFocus);
+	if ( cssFile.open( QFile::ReadOnly ) )
+		this->setStyleSheet( cssFile.readAll() );
+
+	//timer for incomming and outgoing signals
+	d->inSignalTimer = new QTimer(this);
+	d->outSignalTimer = new QTimer(this);
+        connect(d->inSignalTimer, SIGNAL(timeout()), this, SLOT(removeInSignalLabel()));
+	connect(d->outSignalTimer, SIGNAL(timeout()), this, SLOT(removeOutSignalLabel()));
+	//show at start in send-only mode
+	int x = PsiOptions::instance()->getOption("options.ui.play-mode-size.width").toInt();
+	int y = PsiOptions::instance()->getOption("options.ui.play-mode-size.height").toInt();
+	if (!x || !y) {
+		x = 200;
+		y = 400;
+	}
+	printf("width, height = %i %i", x, y);
+	resize(x, y);
+	d->toggleModeButton = new QPushButton(center);
+	d->toggleModeButton->setObjectName("toggleButton");
+	d->toggleModeButton->setCheckable(true);
+	d->vb_main->addWidget(d->toggleModeButton);
+	if (!PsiOptions::instance()->getOption("options.ui.play-mode").toBool())
+		recordMode();
+	else {
+		playMode();
+		d->toggleModeButton->setChecked(true);
+	}
+	connect(d->toggleModeButton, SIGNAL(toggled(bool)), this ,SLOT(toggleMode(bool)));
 }
 
 MainWin::~MainWin()
@@ -424,6 +634,189 @@ MainWin::~MainWin()
 
 	saveToolbarsState();
 	delete d;
+}
+
+void MainWin::toggleMode(bool checked)
+{
+	if (checked) {
+		PsiOptions::instance()->setOption("options.ui.record-mode-size.width", size().width());
+		PsiOptions::instance()->setOption("options.ui.record-mode-size.height", size().height());
+		playMode();
+	}
+	else {
+		PsiOptions::instance()->setOption("options.ui.play-mode-size.width", size().width());
+		PsiOptions::instance()->setOption("options.ui.play-mode-size.height", size().height());
+		recordMode();
+	}
+}
+
+void MainWin::playMode()
+{
+	d->tabWidget->insertTab(1, d->searchWidget, "Search");
+	d->midiOutLine->show();
+	d->midiOutSpin->show();
+	d->tagFrame->show();
+	d->navigationFrame->show();
+	d->toggleModeButton->setText("Switch to Record-Only Mode");
+	d->psi->midiClient()->midiDevice()->activate(true);
+	d->psi->midiClient()->midiDevice()->midi_out((d->midiOutSpin->currentText()).toStdString());
+	int x = PsiOptions::instance()->getOption("options.ui.play-mode-size.width").toInt();
+	int y = PsiOptions::instance()->getOption("options.ui.play-mode-size.height").toInt();
+	resize(x, y);
+}
+
+void MainWin::recordMode()
+{
+	int x = PsiOptions::instance()->getOption("options.ui.record-mode-size.width").toInt();
+	int y = PsiOptions::instance()->getOption("options.ui.record-mode-size.height").toInt();
+	setMinimumSize(QSize(0,0));
+	d->midiOutSpin->hide();
+	d->midiOutLine->hide();
+	d->tagFrame->hide();
+	d->tabWidget->removeTab(1);
+	d->navigationFrame->hide();
+	d->toggleModeButton->setText("Open Player");
+	d->psi->midiClient()->midiDevice()->activate(false);
+	d->psi->midiClient()->midiDevice()->midi_out("");
+//	QMessageBox::information(0, tr("test"), tr("%1").arg(x));
+	this->resize(x, y);
+}
+
+TitleBar* MainWin::getTitleBar()
+{
+	return d->titleBar;
+}
+void MainWin::changeMidiPortDialog(int port)
+{
+	fillMidiInPortsList();
+
+	QMessageBox msgBox;
+	msgBox.setText("New device \"" + d->midiInSpin->itemText(port) + "\" has been found.");
+	msgBox.setInformativeText("Do you want to switch Midi-In to it?");
+	msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+	int ret = msgBox.exec();
+	if (ret == QMessageBox::Yes) {
+		PsiOptions::instance()->setOption("options.ui.midi.midi-in-port", d->midiInSpin->itemText(port));
+		d->midiInSpin->setCurrentIndex(port);
+		d->psi->midiClient()->midiDevice()->midi_in((d->midiInSpin->currentText()).toStdString());
+	}
+
+/*
+	fillMidiOutPortsList();
+
+	QMessageBox msgBox;
+	msgBox.setText("New device \"" + d->midiOutSpin->itemText(port) + "\" has been found.");
+	msgBox.setInformativeText("Do you want to apply it as default?");
+	msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+	int ret = msgBox.exec();
+	if (ret == QMessageBox::Yes) {
+		PsiOptions::instance()->setOption("options.ui.midi.midi-out-port", d->midiOutSpin->itemText(port));
+		d->midiOutSpin->setCurrentIndex(port);
+		d->psi->midiClient()->midiDevice()->midi_out(d->midiOutSpin->currentItem());
+	}
+	*/
+}
+
+void MainWin::printTag(QString t)
+{
+	QString str(d->tagList->toPlainText());
+	d->tagList->setPlainText(t + "\n" + str);
+}
+
+void MainWin::mousePressEvent(QMouseEvent *e)
+{
+    m_old_pos = e->globalPos();
+    if (!m_mouse_down && e->button() == Qt::LeftButton) {
+    	m_mouse_down = true;
+    }
+}
+
+void MainWin::mouseMoveEvent(QMouseEvent *e)
+{
+	int x = e->globalPos().x();
+    int y = e->globalPos().y();
+
+    if (m_mouse_down) {
+        int dx = x - m_old_pos.x();
+        int dy = y - m_old_pos.y();
+
+        QRect g = this->geometry();
+
+        if (left) {
+            g.setLeft(g.left() + dx);
+		}
+        if (right) {
+            g.setRight(g.right() + dx);
+		}
+        if (bottom) {
+            g.setBottom(g.bottom() + dy);
+		}
+        this->setGeometry(g);
+
+        m_old_pos = e->globalPos();
+
+//        printTag(QString("dx=") + QString::number(dx) + QString(", dy=") + QString::number(dy) + " " + bools);
+
+    } else {
+        QRect r = this->geometry();
+        left = qAbs(x - r.left()) <= 5;
+        right = qAbs(x - r.right()) <= 5;
+        bottom = qAbs(y - r.bottom()) <= 5;
+        bool hor = left | right;
+//        printTag("Not Pressed, " + QString::number(x) + " "+ QString::number(r.left()) +" "+ QString::number(y) + " "+ QString::number(r.right()));
+        if (hor && bottom) {
+            if (left) {
+                setCursor(Qt::SizeBDiagCursor);
+            }
+            else {
+                setCursor(Qt::SizeFDiagCursor);
+            }
+        } else if (hor) {
+            setCursor(Qt::SizeHorCursor);
+        } else if (bottom) {
+            setCursor(Qt::SizeVerCursor);
+        } else {
+            setCursor(Qt::ArrowCursor);
+        }
+    }
+}
+
+void MainWin::mouseReleaseEvent(QMouseEvent *e)
+{
+    if (m_mouse_down && e->button() == Qt::LeftButton) {
+    	m_mouse_down = false;
+    }
+}
+
+void MainWin::focusChange(QWidget* old, QWidget* now)
+{
+	if (QApplication::activeWindow()==0){
+		QFile cssFile( ":/css/shadowstyle.css" );
+		if ( cssFile.open( QFile::ReadOnly ) )
+			this->setStyleSheet( cssFile.readAll() );
+	}
+	else {
+		if (QApplication::focusWidget())
+		{
+			QLineEdit *lineEdit = static_cast<QLineEdit*>(QApplication::focusWidget());
+			QString text = tr("Comment on stream here");
+			if (lineEdit == d->commentLine){
+				if (d->commentLine->text()==text){
+					d->commentLine->clear();
+					d->commentLine->setStyleSheet("color:black");
+				}
+			}
+			else if (d->commentLine->text().trimmed()==""){
+				d->commentLine->setStyleSheet("color:#A0A0A0");
+				d->commentLine->setText(text);
+			}
+		}
+
+		QFile cssFile( ":/css/style.css" );
+		if ( cssFile.open( QFile::ReadOnly ) )
+			this->setStyleSheet( cssFile.readAll() );
+	}
+
 }
 
 void MainWin::registerAction( IconAction* action )
@@ -576,7 +969,7 @@ void MainWin::setUseDock(bool use)
 
 	Q_ASSERT(!d->tray);
 	if (use) {
-		d->tray = new PsiTrayIcon("Psi", d->trayMenu);
+		d->tray = new PsiTrayIcon("Peachnote", d->trayMenu);
 		connect(d->tray, SIGNAL(clicked(const QPoint &, int)), SLOT(trayClicked(const QPoint &, int)));
 		connect(d->tray, SIGNAL(doubleClicked(const QPoint &)), SLOT(trayDoubleClicked()));
 		d->tray->setIcon(PsiIconset::instance()->statusPtr(STATUS_OFFLINE));
@@ -628,15 +1021,33 @@ QMenuBar* MainWin::mainMenuBar() const
 #ifdef Q_WS_MAC
 	return psiCon()->defaultMenuBar();
 #else
-	return menuBar();
+	return d->customMenu;
+	//return menuBar();
 #endif
 }
+
 
 const QString toolbarsStateOptionPath = "options.ui.contactlist.toolbars-state";
 
 void MainWin::saveToolbarsState()
 {
 	PsiOptions::instance()->setOption(toolbarsStateOptionPath, saveState());
+}
+
+void MainWin::buildHelpMenu()
+{
+    d->helpMenu->clear();
+    d->helpMenu->insertSeparator();
+
+    QStringList actions;
+    actions << "help_readme"
+            << "separator"
+            << "help_online_home"
+            << "help_report_bug"
+            << "separator"
+	        << "help_about_qt";
+
+    d->updateMenu(actions, d->helpMenu);
 }
 
 void MainWin::loadToolbarsState()
@@ -684,7 +1095,7 @@ bool MainWin::showDockMenu(const QPoint &)
 	return false;
 }
 
-void MainWin::buildOptionsMenu()
+/*void MainWin::buildOptionsMenu()
 {
 	// help menu
 	QMenu* helpMenu = new QMenu(tr("&Help"), d->optionsMenu);
@@ -692,24 +1103,39 @@ void MainWin::buildOptionsMenu()
 
 	QStringList actions;
 	actions << "help_readme"
-	        << "help_tip"
 	        << "separator"
-	        << "help_online_help"
-	        << "help_online_wiki"
 	        << "help_online_home"
-	        << "help_online_forum"
-	        << "help_psi_muc"
 	        << "help_report_bug"
 	        << "diagnostics"
 	        << "separator"
 	        << "help_about"
 	        << "help_about_qt";
 
-	if(AvCallManager::isSupported())
-		actions << "help_about_psimedia";
+	d->updateMenu(actions, d->helpMenu);
+}
+*/
+void MainWin::buildOptionsMenu()
+{
+	// help menu
+	QMenu* helpMenu = new QMenu(d->optionsMenu);
+/*
+	QStringList actions;
+	actions << "help_readme"
+//	        << "help_tip"
+	        << "separator"
+//	        << "help_online_help"
+//	        << "help_online_wiki"
+	        << "help_online_home"
+//	        << "help_online_forum"
+//	        << "help_psi_muc"
+	        << "help_report_bug"
+//	        << "diagnostics"
+	        << "separator"
+//	        << "help_about"
+	        << "help_about_qt";
 
 	d->updateMenu(actions, helpMenu);
-
+*/
 	buildGeneralMenu( d->optionsMenu );
 
 	d->optionsMenu->addSeparator();
@@ -724,16 +1150,16 @@ void MainWin::buildMainMenu()
 	QStringList actions;
 	actions << "menu_add_contact";
 	if (PsiOptions::instance()->getOption("options.ui.message.enabled").toBool()) {
-		actions << "menu_new_message";
+		//actions << "menu_new_message";
 	}
-	actions << "menu_disco"
-	        << "menu_join_groupchat"
-	        << "separator"
-	        << "menu_account_setup";
+	actions //<< "menu_disco"
+	        //<< "menu_join_groupchat"
+	        << "separator";
+//	        << "menu_account_setup";
 	if (PsiOptions::instance()->getOption("options.ui.menu.main.change-profile").toBool()) {
-	        actions << "menu_change_profile";
+//	        actions << "menu_change_profile";
 	}
-	actions << "menu_play_sounds";
+	//actions << "menu_play_sounds";
 
 	d->updateMenu(actions, d->mainMenu);
 }
@@ -752,19 +1178,19 @@ void MainWin::buildGeneralMenu(QMenu* menu)
 {
 	// options menu
 	QStringList actions;
-	actions << "menu_add_contact";
+//	actions << "menu_add_contact";
 	if (PsiOptions::instance()->getOption("options.ui.message.enabled").toBool()) {
-		actions << "menu_new_message";
+		//actions << "menu_new_message";
 	}
-	actions << "menu_disco"
-	        << "menu_join_groupchat"
-	        << "menu_account_setup"
-	        << "menu_options"
-	        << "menu_file_transfer";
+	actions //<< "menu_disco"
+	        //<< "menu_join_groupchat"
+//	        << "menu_account_setup"
+	        << "menu_options";
+	        //<< "menu_file_transfer";
 	if (PsiOptions::instance()->getOption("options.ui.menu.main.change-profile").toBool()) {
-	        actions << "menu_change_profile";
+//	        actions << "menu_change_profile";
 	}
-	actions << "menu_play_sounds";
+	//actions << "menu_play_sounds";
 
 	d->updateMenu(actions, menu);
 }
@@ -778,22 +1204,22 @@ void MainWin::actReadmeActivated ()
 
 void MainWin::actOnlineHelpActivated ()
 {
-	DesktopUtil::openUrl("http://psi-im.org/wiki/User_Guide");
+	DesktopUtil::openUrl("http://peachnote.com/wiki/User_Guide");
 }
 
 void MainWin::actOnlineWikiActivated ()
 {
-	DesktopUtil::openUrl("http://psi-im.org/wiki");
+	DesktopUtil::openUrl("http://peachnote.com/wiki");
 }
 
 void MainWin::actOnlineHomeActivated ()
 {
-	DesktopUtil::openUrl("http://psi-im.org");
+	DesktopUtil::openUrl("http://peachnote.com");
 }
 
 void MainWin::actOnlineForumActivated ()
 {
-    DesktopUtil::openUrl("http://forum.psi-im.org");
+    DesktopUtil::openUrl("http://peachnote.com/forum");
 }
 
 void MainWin::actJoinPsiMUCActivated()
@@ -808,7 +1234,7 @@ void MainWin::actJoinPsiMUCActivated()
 
 void MainWin::actBugReportActivated ()
 {
-	DesktopUtil::openUrl("http://forum.psi-im.org/forum/2");
+	DesktopUtil::openUrl("http://peachnote.com/bugreport");
 }
 
 void MainWin::actAboutActivated ()
@@ -948,7 +1374,7 @@ void MainWin::setTrayToolTip(int status)
 	if (!d->tray) {
 		return;
 	}
-	d->tray->setToolTip(QString("Psi - " + status2txt(status)));
+	d->tray->setToolTip(QString("Peachnote - " + status2txt(status)));
 }
 
 void MainWin::decorateButton(int status)
@@ -1001,6 +1427,16 @@ void MainWin::try2tryCloseProgram()
 void MainWin::tryCloseProgram()
 {
 	if(askQuit()) {
+		if (d->toggleModeButton->isChecked()){
+			PsiOptions::instance()->setOption("options.ui.play-mode", true);
+			PsiOptions::instance()->setOption("options.ui.play-mode-size.width", size().width());
+			PsiOptions::instance()->setOption("options.ui.play-mode-size.height", size().height());
+		}
+		else{
+			PsiOptions::instance()->setOption("options.ui.play-mode", false);
+			PsiOptions::instance()->setOption("options.ui.record-mode-size.width", size().width());
+			PsiOptions::instance()->setOption("options.ui.record-mode-size.height", size().height());
+		}
 		closeProgram();
 	}
 }
@@ -1131,7 +1567,7 @@ void MainWin::setTrayToolTip(const Status& status, bool)
 	if (!d->tray) {
 		return;
 	}
-	QString s = "Psi";
+	QString s = "Peachnote";
 
  	QString show = status.show();
 	if(!show.isEmpty()) {
@@ -1294,6 +1730,246 @@ void MainWin::dockActivated()
 	if(isHidden()) {
 		show();
 	}
+}
+
+/**
+ * Called when the Combo-Box item changed.
+ * Sets MidiIn-Port.
+ */
+void MainWin::midiInChanged()
+{
+	PsiOptions::instance()->setOption("options.ui.midi.midi-in-port", d->midiInSpin->currentText());
+	d->psi->midiClient()->midiDevice()->midi_in((d->midiInSpin->currentText()).toStdString());
+}
+
+void MainWin::setInSignalLabel()
+{
+	if (!d->isLabelInActive){
+		d->inSignalStatus->setStyleSheet("color:red");
+		d->inSignalStatus->setText("*");
+		d->isLabelInActive = true;
+		d->inSignalTimer->start(2000);
+	}
+}
+
+void MainWin::setOutSignalLabel()
+{
+	if (!d->isLabelOutActive){
+		d->outSignalStatus->setStyleSheet("color:red");
+		d->outSignalStatus->setText("*");
+		d->isLabelOutActive = true;
+		d->outSignalTimer->start(2000);
+	}
+}
+
+void MainWin::removeInSignalLabel()
+{
+	d->inSignalStatus->clear();
+	d->isLabelInActive = false;
+}
+
+void MainWin::removeOutSignalLabel()
+{
+	d->outSignalStatus->clear();
+	d->isLabelOutActive = false;
+}
+/**
+ * Called when the Combo-Box item changed.
+ * Sets MidiOut-Port.
+ */
+void MainWin::midiOutChanged()
+{
+	PsiOptions::instance()->setOption("options.ui.midi.midi-out-port", d->midiOutSpin->currentText());
+	d->psi->midiClient()->midiDevice()->midi_out((d->midiOutSpin->currentText()).toStdString());
+}
+
+void MainWin::fillMidiInPortsList()
+{
+	d->midiInSpin->clear();
+
+	std::map<std::string, int>::iterator it;
+	MidiClient* mc = d->psi->midiClient();
+
+	std::map<std::string, int> ports_in = mc->midiDevice()->get_midi_in_ports();
+	for(it = ports_in.begin(); it != ports_in.end(); it++) {
+		d->midiInSpin->addItem(QString::fromStdString(it->first));
+	}
+
+	QString in = QString(PsiOptions::instance()->getOption("options.ui.midi.midi-in-port").toString());
+	int portIndex = d->midiInSpin->findText(in);
+	if (portIndex != -1) {
+		d->midiInSpin->setCurrentIndex(portIndex);
+		mc->midiDevice()->midi_in(in.toStdString());
+	}
+	else {
+		d->midiInSpin->setCurrentIndex(0);
+		mc->midiDevice()->midi_in((d->midiInSpin->currentText()).toStdString());
+	}
+}
+
+void MainWin::fillMidiOutPortsList()
+{
+	d->midiOutSpin->clear();
+	std::map<std::string, int>::iterator it;
+	MidiClient* mc = d->psi->midiClient();
+
+	std::map<std::string, int> ports_out = mc->midiDevice()->get_midi_out_ports();
+	for(it = ports_out.begin(); it != ports_out.end(); it++) {
+		d->midiOutSpin->addItem(QString::fromStdString(it->first));
+	}
+	QString out = QString(PsiOptions::instance()->getOption("options.ui.midi.midi-out-port").toString());
+	int portIndex = d->midiOutSpin->findText(out);
+	if (portIndex != -1) {
+		d->midiOutSpin->setCurrentIndex(portIndex);
+		mc->midiDevice()->midi_out(out.toStdString());
+	}
+	else {
+		d->midiOutSpin->setCurrentIndex(0);
+		mc->midiDevice()->midi_out((d->midiOutSpin->currentText()).toStdString());
+	}
+}
+
+void MainWin::buildTagWidget()
+{
+	d->tagFrame = new QFrame(centralWidget());
+	d->tagFrame->setObjectName("tagFrame");
+	d->streamTabLayout->addWidget(d->tagFrame);
+//	d->streamTabLayout->setAlignment(d->tagFrame, Qt::AlignCenter);
+
+	QVBoxLayout* tagLayout = new QVBoxLayout(d->tagFrame);
+	tagLayout->setMargin(0);
+
+	d->streamInfoLabel = new QLabel(d->tagFrame);
+	d->streamInfoLabel->setText(tr("Incoming stream information"));
+	tagLayout->addWidget(d->streamInfoLabel);
+
+	d->tagList = new QPlainTextEdit(d->tagFrame);
+	d->tagList->setObjectName("tagList");
+	d->tagList->setReadOnly(true);
+//	d->tagList->setFocusProxy(this);
+	d->tagList->setTextInteractionFlags(Qt::NoTextInteraction);
+	tagLayout->addWidget(d->tagList);
+
+	connect( d->psi->midiClient()->midiStream().get(), SIGNAL(gotTag( QString const & )), SLOT(showTag(QString const & )) );
+	connect( d->psi->midiClient()->midiStream().get(), SIGNAL(tagResetReceived()), SLOT(resetTags()) );
+
+	d->commentLine = new QLineEdit(d->tagFrame);
+//	d->commentLine->setFocusProxy(d->tagFrame);
+	d->commentLine->setObjectName("commentLine");
+	tagLayout->addWidget(d->commentLine);
+
+	connect( d->commentLine, SIGNAL(returnPressed()), SLOT( sendTag() ) );
+	connect( this, SIGNAL(tagEntered( QString const & )), d->psi->midiClient(), SLOT(sendTagToServer(QString const & )));
+
+//	d->tagFrame->setVisible(true);
+}
+
+void MainWin::buildNavigationBar()
+{
+	d->navigationFrame = new QFrame(centralWidget());
+	d->navigationFrame->setObjectName("navigationBar");
+	d->streamTabLayout->addWidget(d->navigationFrame);
+//	d->streamTabLayout->setAlignment(d->navigationFrame, Qt::AlignCenter);
+
+	QHBoxLayout* navigationLayout = new QHBoxLayout(d->navigationFrame);
+	navigationLayout->setMargin(0);
+	navigationLayout->setSpacing(2);
+
+	QLineEdit* timeLine = new QLineEdit(d->navigationFrame);
+	navigationLayout->addWidget(timeLine);
+	timeLine->setObjectName("timeLine");
+	timeLine->setReadOnly(true);
+
+	d->prevButton = new QPushButton(d->navigationFrame);
+	d->prevButton->setIcon(QIcon(":/iconsets/midi/Rewind.ico"));
+	d->prevButton->setObjectName("navigationButton");
+	navigationLayout->addWidget(d->prevButton);
+	connect(d->prevButton,SIGNAL(clicked()), d->psi->midiClient(), SLOT(prevButtonClicked()));
+/*
+	d->stopButton = new QPushButton(d->navigationFrame);
+	d->stopButton->setIcon(QIcon(":/iconsets/midi/Forward.ico"));
+	d->stopButton->setObjectName("navigationButton");
+	d->stopButton->setCheckable(true);
+	d->stopButton->setChecked(true);
+	navigationLayout->addWidget(d->stopButton);
+	connect(d->stopButton,SIGNAL(toggled()), d->psi->midiClient(), SLOT(stopButtonClicked()));
+*/
+	d->playButton = new QPushButton(d->navigationFrame);
+	d->playButton->setIcon(QIcon(":/iconsets/midi/Forward.ico"));
+	d->playButton->setObjectName("navigationButton");
+	d->playButton->setCheckable(true);
+	d->playButton->setChecked(true);
+	navigationLayout->addWidget(d->playButton);
+	//connect(d->playButton,SIGNAL(toggled(bool)), d->psi->midiClient(), SLOT(playButtonClicked()));
+	connect(d->playButton, SIGNAL(toggled(bool)), this, SLOT(togglePlayButton(bool)));
+
+	d->nextButton = new QPushButton(d->navigationFrame);
+	d->nextButton->setIcon(QIcon(":/iconsets/midi/Last.ico"));
+	d->nextButton->setObjectName("navigationButton");
+	navigationLayout->addWidget(d->nextButton);
+	connect(d->nextButton,SIGNAL(clicked()), d->psi->midiClient(), SLOT(nextButtonClicked()));
+
+/*	d->timeSearch = new QDateTimeEdit(d->navigationFrame);
+	navigationLayout->addWidget(d->timeSearch);
+	d->timeSearchButton = new QPushButton(d->navigationFrame);
+	d->timeSearchButton->setText("Go");
+	navigationLayout->addWidget(d->timeSearchButton);
+*/
+//	d->navigationFrame->setVisible(true);
+}
+
+void MainWin::togglePlayButton(bool checked)
+{
+	d->psi->midiClient()->playButtonClicked(checked);
+	if (checked){
+		d->playButton->setIcon(QIcon(":/iconsets/midi/Forward.ico"));
+	}
+	else {
+		d->playButton->setIcon(QIcon(":/iconsets/midi/Last.ico"));
+	}
+}
+
+void MainWin::resetTags()
+{
+	d->tagList->setPlainText("");
+}
+
+void MainWin::showTag( QString const & tag )
+{
+	QString msg = d->tagList->toPlainText();
+	msg.append(tag + "\n");
+	d->tagList->setPlainText(msg);
+	if (!d->tagFrame->isVisible() && d->toggleModeButton->isChecked())
+		d->tagFrame->setVisible(true);
+}
+
+void MainWin::sendTag()
+{
+	QString tag = d->commentLine->text();
+	emit tagEntered( tag );
+	d->commentLine->setText("");
+}
+
+void MainWin::showNumberOnlineUsers(int u)
+{
+	if (u > 1)
+		d->statusText->setText(QString::number(u) + tr(" people online"));
+	else if (u == 1)
+		d->statusText->setText(tr("you are online"));
+	else if (u <= 0)
+		d->statusText->setText(tr("offline"));
+}
+
+void MainWin::changeInStatus()
+{
+}
+
+void MainWin::changeStatus(bool online)
+{
+	if (online)
+		d->statusPicture->setPixmap ( QPixmap("../../iconsets/midi/status_on.gif") );
+	else
+		d->statusPicture->setPixmap ( QPixmap("../../iconsets/midi/status_off.gif") );
 }
 
 /**
